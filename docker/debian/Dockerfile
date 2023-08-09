@@ -1,6 +1,8 @@
 FROM debian:latest
 ARG GIT_REPO_URL
 ARG PROJECT
+ARG ELIXIR_REPO=https://github.com/bootlin/elixir.git
+ARG ELIXIR_BRANCH=master
 
 RUN \
     : "${GIT_REPO_URL:?set GIT_REPO_URL to the repo git url}"
@@ -28,10 +30,10 @@ RUN \
     wget
 
 RUN \
-  pip3 install falcon
+  pip3 install --break-system-packages falcon
 
 RUN \
-  ln -s /usr/bin/pytest-3 /usr/bin/pytest
+  [ -e /usr/bin/pytest ] || ln -s /usr/bin/pytest-3 /usr/bin/pytest
 
 RUN \
   wget https://bootlin.com/pub/elixir/universal-ctags_0+git20200526-0ubuntu1_amd64.deb
@@ -43,21 +45,20 @@ RUN \
   wget https://bootlin.com/pub/elixir/Pygments-2.6.1.elixir-py3-none-any.whl
 
 RUN \
-  pip3 install Pygments-2.6.1.elixir-py3-none-any.whl
+  pip3 install --break-system-packages Pygments-2.6.1.elixir-py3-none-any.whl
 
 RUN \
   git config --global user.email 'elixir@dummy.com' && \
   git config --global user.name 'elixir'
 
 RUN \
-  git clone https://github.com/bootlin/elixir.git /usr/local/elixir/
-
-RUN \
-  mkdir -p /srv/elixir-data/
+  git clone -b "${ELIXIR_BRANCH}" "${ELIXIR_REPO}" /usr/local/elixir/
 
 RUN \
   mkdir -p /srv/elixir-data/$PROJECT/repo && \
-  mkdir -p /srv/elixir-data/$PROJECT/data && \
+  mkdir -p /srv/elixir-data/$PROJECT/data
+
+RUN \
   git clone --bare "${GIT_REPO_URL}" /srv/elixir-data/$PROJECT/repo/
 
 ENV LXR_REPO_DIR /srv/elixir-data/$PROJECT/repo
@@ -67,6 +68,10 @@ RUN \
   cd /usr/local/elixir/ && \
   ./script.sh list-tags && \
   python3 -u ./update.py
+
+RUN \
+  chown -R www-data:www-data /srv/elixir-data/$PROJECT/repo && \
+  chown -R www-data:www-data /srv/elixir-data/$PROJECT/data
 
 # apache elixir config, see elixir README
 # make apache less stricter about cgitb spam headers
